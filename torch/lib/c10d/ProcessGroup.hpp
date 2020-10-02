@@ -11,6 +11,7 @@
 #include <ATen/ATen.h>
 
 #include <c10d/Types.hpp>
+#include <sys/types.h>
 
 constexpr auto kNoTimeout = std::chrono::milliseconds(0);
 
@@ -36,7 +37,7 @@ namespace c10d {
 // process group to find each other (referred to as rendezvous from
 // hereon)
 //
-class ProcessGroup {
+class ProcessGroup : public torch::CustomClassHolder{
  public:
   class Work : public torch::CustomClassHolder {
    public:
@@ -53,7 +54,7 @@ class ProcessGroup {
     virtual std::exception_ptr exception() const;
 
     // Returns source rank if this objects represents a recv-from-any.
-    virtual int sourceRank() const;
+    virtual int64_t sourceRank() const;
 
     // Returns result tensors, if applicable.
     virtual std::vector<at::Tensor> result();
