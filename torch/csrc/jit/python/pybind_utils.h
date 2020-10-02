@@ -144,6 +144,22 @@ struct VISIBILITY_HIDDEN PythonFutureWrapper
         PyObjectType::get()));
   }
 
+  void add_done_callback(py::function cb) {
+    auto pf = std::make_shared<PythonFunctionGuard>(std::move(cb));
+    fut->addCallback(std::bind(
+        [pyFut(this->getPtr())](std::shared_ptr<PythonFunctionGuard> pf) {
+          try {
+            pybind11::gil_scoped_acquire ag;
+            pf->func_(pyFut);
+          } catch (std::exception& e) {
+            // Log and ignore exceptions raised through the callback
+            std::cout << "Got the following error when running the callback: "
+                      << e.what() << std::endl;
+          }
+        },
+        std::move(pf)));
+  }
+
   void markCompleted(const py::object& pyValue) {
     DCHECK(PyGILState_Check());
     IValue value = toIValue(pyValue, PyObjectType::get());
