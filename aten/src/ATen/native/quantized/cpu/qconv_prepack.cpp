@@ -23,7 +23,10 @@ c10::intrusive_ptr<ConvPackedParamsBase<kSpatialDim>> PackedConvWeight<
         torch::List<int64_t> dilation,
         int64_t groups,
         bool transpose) {
-  TORCH_CHECK(!transpose, "FBGEMM doesn't support transpose packing yet!");
+  if (transpose) {
+    TORCH_WARN_ONCE("FBGEMM doesn't support transpose packing yet. ",
+                    "Falling back to slow mode!");
+  }
   TORCH_CHECK(
       weight.ndimension() == kSpatialDim + 2,
       "Weights are expected to have ",
@@ -84,7 +87,7 @@ c10::intrusive_ptr<ConvPackedParamsBase<kSpatialDim>> PackedConvWeight<
   } else if (qtype == c10::kPerChannelAffine) {
     int64_t axis = weight.q_per_channel_axis();
     TORCH_CHECK(
-        axis == 0,
+        axis == int(transpose),  // 0 for non-transposed, 1 for transposed
         "Only per output channel quantization is supported for the weights");
     zero_points.resize(output_channels);
     for (int i = 0; i < output_channels; ++i) {
@@ -320,7 +323,6 @@ class QConvPackWeightInt8 final {
     auto& ctx = at::globalContext();
 #ifdef USE_FBGEMM
     if (ctx.qEngine() == at::QEngine::FBGEMM) {
-      TORCH_CHECK(!transpose, "FBGEMM doesn't support transpose packing yet!");
       return PackedConvWeight<kSpatialDim>::prepack(
           weight, bias, stride, padding, output_padding, dilation, groups,
           transpose);
