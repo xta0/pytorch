@@ -148,15 +148,15 @@ void Descriptor::Set::update(const Stream& source) {
 Descriptor::Set& Descriptor::Set::bind(
     const uint32_t binding,
     const VkDescriptorType type,
-    const Resource::Buffer& buffer) {
+    const Resource::Buffer::Object& buffer) {
   update(Stream{
       binding,
       type,
       {
         .buffer = {
           buffer.handle,
-          0u, // buffer.offset,
-          0u, // buffer.range,
+          buffer.offset,
+          buffer.range,
         },
       },
     });
@@ -167,15 +167,15 @@ Descriptor::Set& Descriptor::Set::bind(
 Descriptor::Set& Descriptor::Set::bind(
     const uint32_t binding,
     const VkDescriptorType type,
-    const Resource::Image& image) {
+    const Resource::Image::Object& image) {
   update(Stream{
       binding,
       type,
       {
         .image = {
-          // image.sampler,
-          // image.view,
-          // image.layout
+          image.sampler,
+          image.view,
+          image.layout
         },
       },
     });
