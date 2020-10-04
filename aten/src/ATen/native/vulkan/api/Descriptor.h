@@ -1,8 +1,7 @@
 #pragma once
 
 #include <ATen/native/vulkan/api/Common.h>
-#include <ATen/native/vulkan/api/Cache.h>
-#include <c10/util/hash.h>
+#include <ATen/native/vulkan/api/Resource.h>
 
 namespace at {
 namespace native {
@@ -51,113 +50,82 @@ namespace api {
 
 struct Descriptor final {
   //
+  // Set
+  //
+
+  class Set final {
+   public:
+    Set(
+        VkDevice device,
+        VkDescriptorPool descriptor_pool,
+        VkDescriptorSetLayout descriptor_set_layout);
+    Set(const Set&) = delete;
+    Set& operator=(const Set&) = delete;
+    Set(Set&&) = default;
+    Set& operator=(Set&&) = default;
+    ~Set() = default;
+
+    Set& bind(
+        uint32_t binding,
+        VkDescriptorType type,
+        const Resource::Buffer& buffer);
+
+    Set& bind(
+        uint32_t binding,
+        VkDescriptorType type,
+        const Resource::Image& image);
+
+    VkDescriptorSet handle() const;
+
+   private:
+    struct Stream final {
+      uint32_t binding;
+      VkDescriptorType type;
+      union {
+        VkDescriptorBufferInfo buffer;
+        VkDescriptorImageInfo image;
+      } info;
+    };
+
+    void update(const Stream& stream);
+
+   private:
+    VkDevice device_;
+    VkDescriptorSet descriptor_set_;
+
+    struct {
+      c10::SmallVector<Stream, 8u> streams;
+      mutable bool dirty;
+    } bindings_;
+  };
+
+  //
   // Pool
   //
 
-  struct Pool final {
-    /*
-      Descriptor
-    */
-
-    struct Descriptor final {
-      uint32_t capacity;
-      c10::SmallVector<VkDescriptorPoolSize, 16u> sizes;
-    };
-
-    static const Descriptor kDefault;
-
-    /*
-      Factory
-    */
-
-    class Factory final {
-     public:
-      explicit Factory(const GPU& gpu);
-
-      typedef Pool::Descriptor Descriptor;
-      typedef VK_DELETER(DescriptorPool) Deleter;
-      typedef Handle<VkDescriptorPool, Deleter> Handle;
-
-      struct Hasher {
-        size_t operator()(const Descriptor& descriptor) const;
-      };
-
-      Handle operator()(const Descriptor& descriptor) const;
-
-     private:
-      VkDevice device_;
-    };
-
-    /*
-      Cache
-    */
-
-    typedef api::Cache<Factory> Cache;
-    Cache cache;
-
-    explicit Pool(const GPU& gpu)
-      : cache(Factory(gpu)) {
-    }
-
-    static void purge(VkDevice device, VkDescriptorPool descriptor_pool);
-  } pool;
-
-  /*
-    Factory
-  */
-
-  class Factory final {
+  class Pool final {
    public:
-    Factory(VkDevice device, VkDescriptorPool descriptor_pool);
+    explicit Pool(const GPU& gpu);
+    Pool(const Pool&) = delete;
+    Pool& operator=(const Pool&) = delete;
+    Pool(Pool&&) = default;
+    Pool& operator=(Pool&&) = default;
+    ~Pool() = default;
 
-    VkDescriptorSet allocate(VkDescriptorSetLayout descriptor_set_layout);
+    Set allocate(VkDescriptorSetLayout descriptor_set_layout);
     void purge();
 
    private:
     VkDevice device_;
-    VkDescriptorPool descriptor_pool_;
-  } factory;
+    Handle<VkDescriptorPool, VK_DELETER(DescriptorPool)> descriptor_pool_;
+  } pool /* [thread_count] */;
 
   explicit Descriptor(const GPU& gpu)
-    : pool(gpu),
-      factory(gpu.device, pool.cache.retrieve(Pool::kDefault)) {
+    : pool(gpu) {
   }
 };
-
-//
-// Impl
-//
-
-inline bool operator==(
-    const Descriptor::Pool::Descriptor& _1,
-    const Descriptor::Pool::Descriptor& _2) {
-  return (_1.capacity == _2.capacity) &&
-         (_1.sizes == _2.sizes);
-}
-
-inline size_t Descriptor::Pool::Factory::Hasher::operator()(
-    const Descriptor& descriptor) const {
-  size_t hash = c10::get_hash(descriptor.capacity);
-
-  for (const VkDescriptorPoolSize& descriptor_pool_size : descriptor.sizes) {
-    hash = c10::hash_combine(
-        hash,
-        c10::get_hash(
-            descriptor_pool_size.type,
-            descriptor_pool_size.descriptorCount));
-  }
-
-  return hash;
-}
 
 } // namespace api
 } // namespace vulkan
 } // namespace native
 } // namespace at
-
-inline bool operator==(
-    const VkDescriptorPoolSize& _1,
-    const VkDescriptorPoolSize& _2) {
-  return (_1.type == _2.type) &&
-         (_1.descriptorCount == _2.descriptorCount);
-}

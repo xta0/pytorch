@@ -139,7 +139,7 @@ Resource::Pool::Pool(const GPU& gpu)
     images_.reserve(Configuration::kReserve);
 }
 
-Resource::Buffer Resource::Pool::allocate(
+Resource::Buffer Resource::Pool::buffer(
     const Buffer::Descriptor& descriptor) {
   const VkBufferCreateInfo buffer_create_info{
     VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -176,7 +176,6 @@ Resource::Buffer Resource::Pool::allocate(
         Memory{
           allocator_.get(),
           allocation,
-          allocation_info,
         },
       },
       &release_buffer);
@@ -184,7 +183,7 @@ Resource::Buffer Resource::Pool::allocate(
   return buffers_.back().get();
 }
 
-Resource::Image Resource::Pool::allocate(
+Resource::Image Resource::Pool::image(
     const Image::Descriptor& descriptor) {
   const VkImageCreateInfo image_create_info{
     VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -262,7 +261,6 @@ Resource::Image Resource::Pool::allocate(
         Memory{
           allocator_.get(),
           allocation,
-          allocation_info,
         },
       },
       &release_image);
